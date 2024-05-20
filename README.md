@@ -1,4 +1,4 @@
-<img src="https://github.com/gabrieladvent/nice-one/blob/main/assets/pic.png" > 
+<img src="https://github.com/gabrieladvent/thesis-result/blob/main/assets/pic.png" > 
 
 
 # <span> Object Detection With YOLOv8 Algorithm </span>

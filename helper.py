@@ -6,6 +6,7 @@ import time
 import threading
 import PIL
 import io
+import base64
 from gtts import gTTS
 import pygame
 from pytube import YouTube
@@ -44,8 +45,8 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
 
     st_frame.image(res_plotted, caption=caption, channels="BGR", use_column_width=True)
 
-    # Function to speak detected labels using gtts and pygame
-    def speak_labels():
+    # Function to generate audio from detected labels using gtts and streamlit
+    def get_audio_bytes():
         text = (
             " ".join(detected_labels)
             if detected_labels
@@ -58,15 +59,17 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)  # Move the cursor to the start of the buffer
 
-        # Initialize pygame mixer
-        pygame.mixer.init()
-        pygame.mixer.music.load(audio_buffer, "mp3")
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            continue
+        return audio_buffer
 
-    # Speak the labels the first time
-    speak_labels()
+    # Generate audio and play it using HTML for autoplay
+    audio_buffer = get_audio_bytes()
+    audio_base64 = base64.b64encode(audio_buffer.read()).decode("utf-8")
+    audio_html = f"""
+    <audio autoplay>
+        <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+    </audio>
+    """
+    st.components.v1.html(audio_html, height=0)
 
 
 def play_youtube(conf, model):
@@ -277,21 +280,20 @@ def up_picture(conf, model):
                     with st.spinner("Sedang Mendeteksi Objek..."):
                         time.sleep(2)
                         with col2:
-                            if source_img is None:
-                                default_image_path_result = str(
-                                    settings.DEFAULT_DETECT_IMAGE
-                                )
-                                st.image(
-                                    default_image_path_result,
-                                    use_column_width=True,
-                                    caption="Hasil Deteksi",
-                                )
-                            else:
-                                proses()
+                            proses()
 
         except Exception as ex:
             st.error("Ada Kesalahan Saat Membaca File")
             st.error(ex)
+
+    with col2:
+        if source_img is None:
+            default_image_path_result = str(settings.DEFAULT_DETECT_IMAGE)
+            st.image(
+                default_image_path_result,
+                use_column_width=True,
+                caption="Hasil Deteksi",
+            )
 
 
 def vid_help():

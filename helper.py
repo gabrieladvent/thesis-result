@@ -37,11 +37,16 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
     labels = res[0].names  # Assuming res[0].names provides the class names
     res_plotted = res[0].plot()
 
-    detected_labels = []
+    # Use a set to collect unique labels
+    detected_labels = set()
     for box in boxes:
         label = labels[int(box.cls)]
-        if label not in detected_labels:
-            detected_labels.append(label)
+        detected_labels.add(label)  # Add label to the set
+
+    detected_labels = list(detected_labels)  # Convert set back to list
+
+    # Print detected labels for debugging purposes
+    print("Detected labels:", detected_labels)
 
     st_frame.image(res_plotted, caption=caption, channels="BGR", use_column_width=True)
 
@@ -53,17 +58,20 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
             else "Tidak ada objek yang terdeteksi"
         )
 
+        # Print text for debugging purposes
+        print("Generated text for TTS:", text)
+
         # Generate audio with gTTS and save it to a BytesIO buffer
         tts = gTTS(text, lang="id")
         audio_buffer = io.BytesIO()
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)  # Move the cursor to the start of the buffer
-        
+
         return audio_buffer
 
     # Generate audio and play it using HTML for autoplay
     audio_buffer = get_audio_bytes()
-    audio_base64 = base64.b64encode(audio_buffer.read()).decode('utf-8')
+    audio_base64 = base64.b64encode(audio_buffer.read()).decode("utf-8")
     audio_html = f"""
     <audio autoplay>
         <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">

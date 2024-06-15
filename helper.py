@@ -4,6 +4,7 @@ import streamlit as st
 import cv2
 import time
 import threading
+import base64
 import PIL
 import io
 from gtts import gTTS
@@ -57,12 +58,18 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
         audio_buffer = io.BytesIO()
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)  # Move the cursor to the start of the buffer
-
+        
         return audio_buffer
 
-    # Generate audio and play it using st.audio
+    # Generate audio and play it using HTML for autoplay
     audio_buffer = get_audio_bytes()
-    st.audio(audio_buffer, format="audio/mp3")
+    audio_base64 = base64.b64encode(audio_buffer.read()).decode('utf-8')
+    audio_html = f"""
+    <audio autoplay>
+        <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+    </audio>
+    """
+    st.components.v1.html(audio_html, height=0)
 
 
 def play_youtube(conf, model):

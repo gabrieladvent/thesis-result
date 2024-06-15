@@ -6,7 +6,6 @@ import time
 import threading
 import PIL
 import io
-import base64
 from gtts import gTTS
 import pygame
 from pytube import YouTube
@@ -61,15 +60,9 @@ def showDetectFrame(conf, model, st_frame, image, caption=None):
 
         return audio_buffer
 
-    # Generate audio and play it using HTML for autoplay
+    # Generate audio and play it using st.audio
     audio_buffer = get_audio_bytes()
-    audio_base64 = base64.b64encode(audio_buffer.read()).decode("utf-8")
-    audio_html = f"""
-    <audio autoplay>
-        <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-    </audio>
-    """
-    st.components.v1.html(audio_html, height=0)
+    st.audio(audio_buffer, format="audio/mp3")
 
 
 def play_youtube(conf, model):

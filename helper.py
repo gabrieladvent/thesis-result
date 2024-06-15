@@ -2,6 +2,12 @@
 from ultralytics import YOLO
 import streamlit as st
 import cv2
+import time
+import threading
+import PIL
+import io
+from gtts import gTTS
+import pygame
 from pytube import YouTube
 
 from tempfile import NamedTemporaryFile
@@ -16,33 +22,51 @@ from streamlit_webrtc import (
 import settings
 import turn
 
+
 def load_model(model_path):
     model = YOLO(model_path)
     return model
 
+
 def showDetectFrame(conf, model, st_frame, image, caption=None):
     # Predict the objects in the image using the YOLOv8 model
     res = model.predict(image, conf=conf)
-    # Plot the detected objects on the video frame
+    # Get the results
     boxes = res[0].boxes
+    labels = res[0].names  # Assuming res[0].names provides the class names
     res_plotted = res[0].plot()
 
-    st_frame.image(
-        res_plotted,
-        caption=caption,
-        channels="BGR",
-    )
-    st.markdown(
-        """
-            <style>
-                .st-emotion-cache-13na8ym {
-                    background-color: #262730;
-                    color: #cdd3e9;
-                }
-            </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    detected_labels = []
+    for box in boxes:
+        label = labels[int(box.cls)]
+        if label not in detected_labels:
+            detected_labels.append(label)
+
+    st_frame.image(res_plotted, caption=caption, channels="BGR", use_column_width=True)
+
+    # Function to speak detected labels using gtts and pygame
+    def speak_labels():
+        text = (
+            " ".join(detected_labels)
+            if detected_labels
+            else "Tidak ada objek yang terdeteksi"
+        )
+
+        # Generate audio with gTTS and save it to a BytesIO buffer
+        tts = gTTS(text, lang="id")
+        audio_buffer = io.BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)  # Move the cursor to the start of the buffer
+
+        # Initialize pygame mixer
+        pygame.mixer.init()
+        pygame.mixer.music.load(audio_buffer, "mp3")
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            continue
+
+    # Speak the labels the first time
+    speak_labels()
 
 
 def play_youtube(conf, model):
@@ -83,12 +107,42 @@ class VideoTransformer(VideoTransformerBase):
     def __init__(self, model, conf):
         self.model = model
         self.conf = conf
+        self.last_detected_labels = set()
 
     def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
         res = self.model.predict(img, show=False, conf=self.conf)
         res_plotted = res[0].plot()
+
+        detected_labels = set()
+        for box in res[0].boxes:
+            label = res[0].names[int(box.cls)]
+            detected_labels.add(label)
+
+        if detected_labels != self.last_detected_labels:
+            self.last_detected_labels = detected_labels
+            threading.Thread(target=self.speak_labels, args=(detected_labels,)).start()
+
         return res_plotted
+
+    def speak_labels(self, detected_labels):
+        text = (
+            " ".join(detected_labels)
+            if detected_labels
+            else "Tidak ada objek yang terdeteksi"
+        )
+
+        tts = gTTS(text, lang="id")
+        audio_buffer = io.BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)  # Move the cursor to the start of the buffer
+
+        pygame.mixer.init()
+        pygame.mixer.music.load(audio_buffer, "mp3")
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            continue
+        pygame.mixer.quit()
 
 
 def live(conf, model):
@@ -102,7 +156,6 @@ def live(conf, model):
         video_transformer_factory=lambda: VideoTransformer(model, conf),
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
-        video_processor_factory=lambda: VideoProcessorFactory(fps=60),
     )
 
 
@@ -191,6 +244,55 @@ def take_picture(conf, model):
                             break
                 except Exception as e:
                     st.error("Error loading video: " + str(e))
+
+
+def up_picture(conf, model):
+    source_img = st.file_uploader(
+        "Silahkan Mengupload Gambar", type=("jpg", "jpeg", "png")
+    )
+
+    def proses():
+        if source_img is not None:
+            st_frame = st.empty()
+            uploaded_image = PIL.Image.open(source_img)
+            showDetectFrame(
+                conf,
+                model,
+                st_frame,
+                uploaded_image,
+                caption="Hasil Deteksi Gambar",
+            )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        try:
+            if source_img is None:
+                default_image_path = str(settings.DEFAULT_IMAGE)
+                st.image(
+                    default_image_path, caption="Gambar Awal", use_column_width=True
+                )
+            else:
+                st.image(source_img, caption="Gambar Awal", use_column_width=True)
+                if st.button("Deteksi", help="Klik tombol ini untuk deteksi"):
+                    with st.spinner("Sedang Mendeteksi Objek..."):
+                        time.sleep(2)
+                        with col2:
+                            if source_img is None:
+                                default_image_path_result = str(
+                                    settings.DEFAULT_DETECT_IMAGE
+                                )
+                                st.image(
+                                    default_image_path_result,
+                                    use_column_width=True,
+                                    caption="Hasil Deteksi",
+                                )
+                            else:
+                                proses()
+
+        except Exception as ex:
+            st.error("Ada Kesalahan Saat Membaca File")
+            st.error(ex)
+
 
 def vid_help():
     html_temp_about1 = """

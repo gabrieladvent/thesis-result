@@ -1,9 +1,7 @@
 from pathlib import Path
-import PIL
 
 # Import library
 import streamlit as st
-import time
 
 # Import Local File
 import settings
@@ -45,9 +43,7 @@ st.markdown(
     """
 	<style>
 	.stSelectbox:first-of-type > div[data-baseweb="select"] > div {
-        
         border-radius: 5px;
-        
     	padding: 7px;
 	}
 	</style>
@@ -95,71 +91,7 @@ elif selected_option == settings.IMAGE:
     )
 
     with tab1:
-        source_img = st.file_uploader(
-            "Silahkan Mengupload Gambar", type=("jpg", "jpeg", "png")
-        )
-
-        col1, col2 = st.columns(2)
-        res_plotted = None
-        with col1:
-            try:
-                if source_img is None:
-                    default_image_path = str(settings.DEFAULT_IMAGE)
-                    default_image = PIL.Image.open(default_image_path)
-                    st.image(
-                        default_image_path, caption="Gambar Awal", use_column_width=True
-                    )
-                else:
-                    uploaded_image = PIL.Image.open(source_img)
-                    st.image(source_img, caption="Gambar Awal", use_column_width=True)
-
-                    # Tombol Detect Objects di sini
-                    if st.button("Deteksi", help="Klik tombol ini untuk deteksi"):
-                        with col2:
-                            with st.spinner("Sedang Mendeteksi Objek..."):
-                                time.sleep(2)
-                                res = model.predict(uploaded_image, conf=confidence)
-                                boxes = res[0].boxes
-                                res_plotted = res[0].plot()[:, :, ::-1]
-
-            except Exception as ex:
-                st.error("Ada Kesalahan Saat Membaca File")
-                st.error(ex)
-
-        with col2:
-            if source_img is None:
-                default_detected_image_path = str(settings.DEFAULT_DETECT_IMAGE)
-                default_detected_image = PIL.Image.open(default_detected_image_path)
-                st.image(
-                    default_detected_image_path,
-                    caption="Gambar Hasil Deteksi",
-                    use_column_width=True,
-                )
-            else:
-                if res_plotted is not None:
-                    st.image(res_plotted, caption="Gambar Hasil Deteksi")
-                    st.balloons()
-                    class_indices = set(boxes.cls.tolist())
-                    unique_labels = [settings.CLASS_NAME[idx] for idx in class_indices]
-
-                    st.markdown(
-                        """
-                        <style>
-                        .st-emotion-cache-13na8ym {
-                            background-color: #262730;
-                            color: #cdd3e9;
-                        }
-                        </style>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    with st.expander("Hasil Deteksi"):
-                        if unique_labels:
-                            st.success(", ".join(unique_labels))
-                        else:
-                            st.warning("Tidak Ada Objek Yang Terdeteksi")
-                else:
-                    st.empty()
+        helper.up_picture(confidence, model)
     with tab2:
         helper.take_picture(confidence, model)
 
